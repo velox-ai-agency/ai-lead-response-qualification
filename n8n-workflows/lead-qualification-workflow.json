@@ -1,0 +1,180 @@
+{
+  "name": "AI Lead Response & Qualification",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "webhook-node",
+      "name": "Lead Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "lead-capture"
+    },
+    {
+      "parameters": {
+        "options": {},
+        "prompt": "\nAnalyze this lead data and provide qualification:\n\nName: {{$json.body.name}}\nEmail: {{$json.body.email}}\nCompany: {{$json.body.company}}\nBudget: {{$json.body.budget}}\nTimeline: {{$json.body.timeline}}\nProject: {{$json.body.project_description}}\n\nRespond ONLY in JSON format with: qualification_score (0-100), category (HOT/WARM/COLD), reasoning (string), recommended_action (string), urgency_level (high/medium/low), ideal_meeting_type (string), follow_up_days (number)\n"
+      },
+      "id": "claude-qualification",
+      "name": "Claude Qualification",
+      "type": "@n8n/n8n-nodes-langchain.agents",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "={{$json.category}}",
+            "type": "string"
+          },
+          "conditions": [
+            {
+              "value": "HOT",
+              "operator": {
+                "type": "equals",
+                "operation": "equals"
+              }
+            },
+            {
+              "value": "WARM",
+              "operator": {
+                "type": "equals",
+                "operation": "equals"
+              }
+            },
+            {
+              "value": "COLD",
+              "operator": {
+                "type": "equals",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "any"
+        }
+      },
+      "id": "router",
+      "name": "Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "from": "leads@veloxai.work",
+        "to": "={{$json.body.email}}",
+        "subject": "\ud83d\ude80 Let's talk about your AI project",
+        "text": "Hi {{$json.body.name}},\n\nThanks for reaching out about your AI automation needs!\n\nBased on what you shared, this sounds like an exciting opportunity. I'd love to jump on a quick call this week to dive deeper.\n\nBook your slot here: https://cal.com/velox-ai\n\nBest,\nVelox AI Team"
+      },
+      "id": "hot-email",
+      "name": "HOT: Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        850,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "from": "leads@veloxai.work",
+        "to": "={{$json.body.email}}",
+        "subject": "Case studies for your AI project",
+        "text": "Hi {{$json.body.name}},\n\nGreat to hear about your interest in AI automation!\n\nI've reviewed your requirements and think we can definitely help. Here are some relevant case studies:\n\ud83d\udc49 [Link 1]\n\ud83d\udc49 [Link 2]\n\nI'm available for a discovery call this week: https://cal.com/velox-ai\n\nBest,\nVelox AI Team"
+      },
+      "id": "warm-email",
+      "name": "WARM: Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "from": "leads@veloxai.work",
+        "to": "={{$json.body.email}}",
+        "subject": "Thanks for your interest!",
+        "text": "Hi {{$json.body.name}},\n\nThanks for your interest in Velox AI Agency!\n\nWe'll be sharing valuable resources and case studies that might help with your AI journey. Feel free to reply anytime if you have questions.\n\nBest,\nVelox AI Team"
+      },
+      "id": "cold-email",
+      "name": "COLD: Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        850,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Lead Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Claude Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Qualification": {
+      "main": [
+        [
+          {
+            "node": "Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router": {
+      "main": [
+        [
+          {
+            "node": "HOT: Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WARM: Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "COLD: Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    "lead-generation",
+    "qualification",
+    "automation"
+  ],
+  "staticData": null
+}
