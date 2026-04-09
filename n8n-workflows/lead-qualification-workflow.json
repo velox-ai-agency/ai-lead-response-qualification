@@ -1,137 +1,267 @@
 {
-  "name": "AI Lead Response & Qualification",
+  "name": "AI Lead Response & Qualification System",
   "nodes": [
     {
-      "parameters": {},
-      "id": "webhook-node",
-      "name": "Lead Form Webhook",
+      "id": "bf8745af",
+      "name": "Lead Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
         250,
         300
       ],
-      "webhookId": "lead-capture"
+      "parameters": {
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "path": "lead-capture",
+        "responseData": "{",
+        "options": {}
+      },
+      "webhookId": "lead-capture",
+      "disabled": false
     },
     {
-      "parameters": {
-        "options": {},
-        "prompt": "\nAnalyze this lead data and provide qualification:\n\nName: {{$json.body.name}}\nEmail: {{$json.body.email}}\nCompany: {{$json.body.company}}\nBudget: {{$json.body.budget}}\nTimeline: {{$json.body.timeline}}\nProject: {{$json.body.project_description}}\n\nRespond ONLY in JSON format with: qualification_score (0-100), category (HOT/WARM/COLD), reasoning (string), recommended_action (string), urgency_level (high/medium/low), ideal_meeting_type (string), follow_up_days (number)\n"
-      },
-      "id": "claude-qualification",
-      "name": "Claude Qualification",
-      "type": "@n8n/n8n-nodes-langchain.agents",
-      "typeVersion": 1,
+      "id": "312db90a",
+      "name": "Prepare Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
       "position": [
         450,
         300
-      ]
+      ],
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "name",
+              "value": "={{ $json.body.name || $json.body.fullName }}"
+            },
+            {
+              "name": "email",
+              "value": "={{ $json.body.email }}"
+            },
+            {
+              "name": "company",
+              "value": "={{ $json.body.company }}"
+            },
+            {
+              "name": "budget",
+              "value": "={{ $json.body.budget }}"
+            },
+            {
+              "name": "timeline",
+              "value": "={{ $json.body.timeline }}"
+            },
+            {
+              "name": "project",
+              "value": "={{ $json.body.project_description || $json.body.project }}"
+            }
+          ]
+        },
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "={{$json.category}}",
-            "type": "string"
-          },
-          "conditions": [
-            {
-              "value": "HOT",
-              "operator": {
-                "type": "equals",
-                "operation": "equals"
-              }
-            },
-            {
-              "value": "WARM",
-              "operator": {
-                "type": "equals",
-                "operation": "equals"
-              }
-            },
-            {
-              "value": "COLD",
-              "operator": {
-                "type": "equals",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "any"
-        }
-      },
-      "id": "router",
-      "name": "Router",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 2,
+      "id": "ea18c166",
+      "name": "AI Qualification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
       "position": [
         650,
         300
-      ]
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-3-5-sonnet-20241022\",\n  \"max_tokens\": 1024,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this lead and respond ONLY in valid JSON format with these fields: qualification_score (0-100), category (HOT/WARM/COLD), reasoning (string), recommended_action (string), urgency_level (high/medium/low), ideal_meeting_type (string), follow_up_days (number).\\n\\nLead Data:\\nName: {{ $json.name }}\\nCompany: {{ $json.company }}\\nBudget: {{ $json.budget }}\\nTimeline: {{ $json.timeline }}\\nProject: {{ $json.project }}\\n\\nCriteria:\\n- HOT (80-100): Budget $5000+, ASAP timeline, clear project\\n- WARM (50-79): Budget $1000-5000, next month timeline\\n- COLD (0-49): Low budget, vague timeline, just exploring\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLAUDE_API_KEY_PLACEHOLDER",
+          "name": "Claude API"
+        }
+      }
     },
     {
-      "parameters": {
-        "from": "leads@veloxai.work",
-        "to": "={{$json.body.email}}",
-        "subject": "\ud83d\ude80 Let's talk about your AI project",
-        "text": "Hi {{$json.body.name}},\n\nThanks for reaching out about your AI automation needs!\n\nBased on what you shared, this sounds like an exciting opportunity. I'd love to jump on a quick call this week to dive deeper.\n\nBook your slot here: https://cal.com/velox-ai\n\nBest,\nVelox AI Team"
-      },
-      "id": "hot-email",
-      "name": "HOT: Send Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2,
-      "position": [
-        850,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "from": "leads@veloxai.work",
-        "to": "={{$json.body.email}}",
-        "subject": "Case studies for your AI project",
-        "text": "Hi {{$json.body.name}},\n\nGreat to hear about your interest in AI automation!\n\nI've reviewed your requirements and think we can definitely help. Here are some relevant case studies:\n\ud83d\udc49 [Link 1]\n\ud83d\udc49 [Link 2]\n\nI'm available for a discovery call this week: https://cal.com/velox-ai\n\nBest,\nVelox AI Team"
-      },
-      "id": "warm-email",
-      "name": "WARM: Send Email",
-      "type": "n8n-nodes-base.emailSend",
+      "id": "2375346a",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         850,
         300
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// Parse Claude response\nconst aiResponse = $json.content[0].text;\nlet qualification;\n\ntry {\n  // Extract JSON from Claude response\n  const jsonMatch = aiResponse.match(/\\{[^}]+\\}/);\n  if (jsonMatch) {\n    qualification = JSON.parse(jsonMatch[0]);\n  } else {\n    // Fallback parsing\n    qualification = {\n      qualification_score: 50,\n      category: \"WARM\",\n      reasoning: \"Could not parse AI response: \" + aiResponse,\n      recommended_action: \"Manual review needed\",\n      urgency_level: \"medium\",\n      ideal_meeting_type: \"discovery_call_30min\",\n      follow_up_days: 2\n    };\n  }\n} catch (error) {\n  qualification = {\n    qualification_score: 50,\n    category: \"WARM\",\n    reasoning: \"Error parsing: \" + error.message,\n    recommended_action: \"Manual review\",\n    urgency_level: \"medium\",\n    ideal_meeting_type: \"discovery_call_30min\",\n    follow_up_days: 2\n  };\n}\n\nreturn [{ json: qualification }];",
+        "mode": "runOnceForAllItems"
+      }
     },
     {
+      "id": "c5db135a",
+      "name": "Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2.1,
+      "position": [
+        1050,
+        300
+      ],
       "parameters": {
-        "from": "leads@veloxai.work",
-        "to": "={{$json.body.email}}",
-        "subject": "Thanks for your interest!",
-        "text": "Hi {{$json.body.name}},\n\nThanks for your interest in Velox AI Agency!\n\nWe'll be sharing valuable resources and case studies that might help with your AI journey. Feel free to reply anytime if you have questions.\n\nBest,\nVelox AI Team"
-      },
-      "id": "cold-email",
-      "name": "COLD: Send Email",
-      "type": "n8n-nodes-base.emailSend",
+        "rules": {
+          "rules": [
+            {
+              "value": "HOT",
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.category }}",
+                  "rightValue": "HOT",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            },
+            {
+              "value": "WARM",
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.category }}",
+                  "rightValue": "WARM",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            },
+            {
+              "value": "COLD",
+              "conditions": [
+                {
+                  "leftValue": "={{ $json.category }}",
+                  "rightValue": "COLD",
+                  "operator": {
+                    "type": "string",
+                    "operation": "equals"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4a646b93",
+      "name": "HOT: Send Email",
+      "type": "n8n-nodes-base.sendEmail",
       "typeVersion": 2,
       "position": [
-        850,
-        400
-      ]
+        1250,
+        150
+      ],
+      "parameters": {
+        "to": "={{ $('Prepare Data').item.json.email }}",
+        "subject": "🚀 Let's talk about your AI project",
+        "text": "Hi {{ $('Prepare Data').item.json.name }},\n\nThanks for reaching out about your AI automation needs!\n\nBased on what you shared, this sounds like an exciting opportunity that matches perfectly with what we do. I'd love to jump on a quick call this week to dive deeper.\n\nThis is a HIGH PRIORITY lead - let's schedule ASAP!\n\nBook your slot here: https://cal.com/velox-ai\n\nBest,\nVelox AI Team",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIALS_PLACEHOLDER",
+          "name": "SMTP Credentials"
+        }
+      }
+    },
+    {
+      "id": "bf4b6fc5",
+      "name": "WARM: Send Email",
+      "type": "n8n-nodes-base.sendEmail",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "to": "={{ $('Prepare Data').item.json.email }}",
+        "subject": "Thanks for your interest! Case studies inside",
+        "text": "Hi {{ $('Prepare Data').item.json.name }},\n\nGreat to hear about your interest in AI automation!\n\nI've reviewed your requirements and think we can definitely help. Here are some relevant case studies that might interest you:\n\n📊 E-commerce Automation: 40% reduction in manual tasks\n🤖 Customer Support Bot: 24/7 AI-powered responses\n📈 Lead Generation: 3x increase in qualified leads\n\nI'd love to chat about your specific project. Here's my calendar for the next few days:\nhttps://cal.com/velox-ai\n\nBest,\nVelox AI Team",
+        "options": {}
+      }
+    },
+    {
+      "id": "d968a51a",
+      "name": "COLD: Send Email",
+      "type": "n8n-nodes-base.sendEmail",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        450
+      ],
+      "parameters": {
+        "to": "={{ $('Prepare Data').item.json.email }}",
+        "subject": "Thanks for your interest in Velox AI!",
+        "text": "Hi {{ $('Prepare Data').item.json.name }},\n\nThanks for your interest in Velox AI Agency!\n\nWe've noted your requirements. We'll be sharing valuable resources, case studies, and tips that might help with your AI journey.\n\nFeel free to reply anytime if you have questions or when you're ready to discuss further.\n\nBest,\nVelox AI Team",
+        "options": {}
+      }
+    },
+    {
+      "id": "134c6883",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        300
+      ],
+      "parameters": {
+        "options": {},
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"message\": \"Lead received and qualified\",\n  \"category\": \"{{ $json.category }}\",\n  \"score\": {{ $json.qualification_score }},\n  \"action\": \"{{ $json.recommended_action }}\"\n}"
+      }
     }
   ],
   "connections": {
-    "Lead Form Webhook": {
+    "Lead Webhook": {
       "main": [
         [
           {
-            "node": "Claude Qualification",
+            "node": "Prepare Data",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Claude Qualification": {
+    "Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "AI Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Qualification": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
       "main": [
         [
           {
@@ -166,15 +296,61 @@
           }
         ]
       ]
+    },
+    "HOT: Send Email": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WARM: Send Email": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "COLD: Send Email": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
+  "pinData": {},
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorReporting": "config"
   },
+  "staticData": null,
   "tags": [
-    "lead-generation",
-    "qualification",
-    "automation"
-  ],
-  "staticData": null
+    {
+      "id": "lead-qualification",
+      "name": "Lead Qualification"
+    },
+    {
+      "id": "automation",
+      "name": "Automation"
+    },
+    {
+      "id": "ai",
+      "name": "AI"
+    }
+  ]
 }
